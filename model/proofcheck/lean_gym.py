@@ -1,6 +1,5 @@
 import os
 import re
-import select
 import tempfile
 import subprocess
 from contextlib import contextmanager
@@ -27,8 +26,6 @@ class LeanGymConnection:
 
         self.__filename = tempfile.NamedTemporaryFile(delete=False).name
         self.__file = open(self.__filename, 'r')
-        self.__poller = select.poll()
-        self.__poller.register(self.__file.fileno(), select.POLLIN)
 
         screen = f'lean_repl{LeanGymConnection.__n_conns}'
         self.__START = f'screen -Logfile {self.__filename} -dmSL {screen} lean --run src/repl.lean'.split(' ')
@@ -103,15 +100,12 @@ class LeanGymConnection:
 
         result = []
         while self.__queries > 0:
-            self.__poller.poll()
-
-            while True:
-                line = self.__file.readline()
-                if len(line) == 0:
-                    break
-                elif line[0] == '{':
-                    result.append(self.__parse_response(line))
-                    self.__queries -= 1
+            line = self.__file.readline()
+            if line == '':
+                continue
+            elif line[0] == '{':
+                result.append(self.__parse_response(line))
+                self.__queries -= 1
         return result
 
     def __parse_response(self, responce: str):
