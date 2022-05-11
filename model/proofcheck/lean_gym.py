@@ -27,8 +27,8 @@ class LeanGymConnection:
 
         self.__filename = tempfile.NamedTemporaryFile(delete=False).name
         self.__file = open(self.__filename, 'r')
-        self.__pooler = select.poll()
-        self.__pooler.register(self.__file.fileno(), select.POLLIN)
+        self.__poller = select.poll()
+        self.__poller.register(self.__file.fileno(), select.POLLIN)
 
         screen = f'lean_repl{LeanGymConnection.__n_conns}'
         self.__START = f'screen -Logfile {self.__filename} -dmSL {screen} lean --run src/repl.lean'.split(' ')
@@ -40,6 +40,7 @@ class LeanGymConnection:
             subprocess.run(self.__START, cwd=path)
         except FileNotFoundError as e:
             raise OSError('screen (terminal command) is not found')
+        # TODO: check if screen session created
 
         self.__queries = 0
 
@@ -74,11 +75,12 @@ class LeanGymConnection:
             raise ValueError('connection is closed')
 
         self.__queries += 1
+        tactic = tactic.replace('\n', '\\n')
         self.__send_query(['run_tac', [str(search_id), str(tactic_state_id), tactic]])
 
     def clear_search(self, search_id: int):
         '''
-        Sends 'clear_search' command to the lean-gsym.
+        Sends 'clear_search' command to the lean-gym.
         :param search_id: an id of a search state
         :raises ValueError: if connection is closed
         '''
@@ -101,7 +103,7 @@ class LeanGymConnection:
 
         result = []
         while self.__queries > 0:
-            self.__pooler.poll()
+            self.__poller.poll()
 
             while True:
                 line = self.__file.readline()
@@ -145,7 +147,7 @@ class LeanGymConnection:
 @contextmanager
 def invoke_lean(*args, **kwds):
     '''
-    Context manager that creates an instance of LeanGymConnection. 
+    A context manager that creates an instance of LeanGymConnection. 
     '''
 
     connection = LeanGymConnection(*args, **kwds)
