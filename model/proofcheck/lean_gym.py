@@ -15,7 +15,7 @@ class LeanGymConnection:
 
     __n_conns = 0
 
-    def __init__(self, path: str):
+    def __init__(self, path: str = './lean-gym'):
         '''
         :param path: a path to the lean-gym root folder.
         :raises OSError: if lean or screen are not found
@@ -32,18 +32,27 @@ class LeanGymConnection:
         self.__QUERY = f'screen -S {screen} -X stuff'.split(' ')
         self.__EXIT  = f'screen -S {screen} -X quit'.split(' ')
 
-        # TODO: check if lean exists
+        if 'lean:\n' == subprocess.run(['whereis', 'lean'], capture_output=True, encoding='utf-8').stdout:
+            raise OSError('lean is not found')
         try:
             subprocess.run(self.__START, cwd=path)
         except FileNotFoundError as e:
-            raise OSError('screen (terminal command) is not found')
-        # TODO: check if screen session created
+            if 'screen' in str(e):
+                raise OSError('screen (terminal command) is not found')
+            else:
+                raise e
 
         self.__queries = 0
 
     def __send_query(self, cmd: list):
         cmd = str(cmd).replace("'", '"')
-        subprocess.run(self.__QUERY + [f'{cmd}\n'])
+        result = subprocess.run(self.__QUERY + [f'{cmd}\n'], capture_output=True, encoding='utf-8').stdout
+        
+        if result != '':
+            self.__closed = True
+            self.__file.close()
+            os.remove(self.__filename)
+            raise ValueError(result)
 
     def init_search(self, name: str, namespaces: List[str] = []):
         '''
