@@ -66,7 +66,9 @@ class LeanGymConnection:
             raise ValueError('connection is closed')
 
         self.__queries += 1
-        self.__send_query(['init_search', [name, '']])
+        if not namespaces:
+            namespaces = ['']
+        self.__send_query(['init_search', [name] + namespaces])
 
     def run_tac(self, search_id: int, tactic_state_id: int, tactic: str):
         '''
